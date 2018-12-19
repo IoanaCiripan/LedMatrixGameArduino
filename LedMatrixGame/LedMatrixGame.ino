@@ -1,23 +1,26 @@
 #include "LedControl.h" 
 #include <LiquidCrystal.h>
-///////////////////// <3 si omuletul https://www.youtube.com/watch?v=iHDQdBhdFxI
+
 #define SW_PIN  13     // digital pin connected to switch output
 #define joyStickVRx A0 // analog pin connected to X output
 #define joyStickVRy A1 // analog pin connected to Y output
 #define V0_PIN 9       // PWN 
-#define randomPin 0    // an unconected pin for fairly random input
+#define randomPin A5   // an unconected pin for fairly random input
 
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7); // RS,E,D4,D5,D6,D7
 LedControl lc = LedControl(12, 11, 10, 1); // DIN, CLK, LOAD, No. DRIVER
 
+int LIMIT = 7;
 int lifes = 2;
+long score = 0;
+int score2 = 0;
 int randomPoint;
 int monsterPosition;
+int monsterSpeed;
 int playerPosition = 3; 
 int previsiousPosition = playerPosition;
 int i = 1;
 unsigned long int lastUpdate = 0;
-unsigned long int lastUpdate2 = 0;
 unsigned long int lastMove = 0;
 boolean moved = false;
 boolean monsterPushed = false;
@@ -25,8 +28,8 @@ boolean shot = false;
 boolean start = false;
 boolean dead = false; // check if it is dead
 boolean firstTime = true;
-long score;
-boolean isScoreIncreased = 0;
+boolean isScoreIncreased = false;
+
 
  bool ledMatrix[8][8] = 
 {
@@ -39,6 +42,7 @@ boolean isScoreIncreased = 0;
   {0, 0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0}
 };
+
  bool gameOverMatrix[8][8] = 
 {
   {1, 0, 0, 0, 0, 0, 0, 1},
@@ -50,6 +54,7 @@ boolean isScoreIncreased = 0;
   {0, 1, 0, 0, 0, 0, 1, 0},
   {1, 0, 0, 0, 0, 0, 0, 1}
 };
+
  bool arrowUp[8][8] = 
 {
   {0, 0, 0, 0, 0, 0, 0, 0},
@@ -80,15 +85,14 @@ void clearMatrix()
         ledMatrix[i][j] = 0;
 }
 
+
 void pushRandomMonster() 
 {
   if (monsterPushed == false)
   {
     i = 1;
-    randomSeed(analogRead(randomPin));
-    randomPoint = random(0, analogRead(joyStickVRx)) % 6;
+    randomPoint = random(0, 6);
     monsterPosition = randomPoint;
-    Serial.println(randomPoint);
     clearMatrix();
     if (randomPoint == 0)
     {
@@ -100,7 +104,6 @@ void pushRandomMonster()
       ledMatrix[0][5] = 0;
       ledMatrix[0][6] = 0;
       ledMatrix[0][7] = 0;
-
     }
 
     if (randomPoint == 1)
@@ -178,14 +181,16 @@ void pushRandomMonster()
   i++;
   
   if (i > 8)
+  {
     monsterPushed = false;
+  }
 
   pushMatrix();
 
 }
 
 
-void setDot (int &playerPosition)
+void setDot(int &playerPosition)
 {
   if (playerPosition > 7)
     playerPosition = 7;
@@ -194,28 +199,32 @@ void setDot (int &playerPosition)
 }
 
 
-void fire(int line, int &playerPosition)
+void fire(int line, int playerPosition)
 {
-  //isScoreIncreased = 0;
-  int i = 1;
-  //Serial.print("random: ");
-  //Serial.println(monsterPosition);
-  //Serial.print("player: ");
-  //Serial.println(playerPosition);
- /* if(playerPosition == randomPoint || playerPosition == randomPoint+1 || playerPosition == randomPoint+2)
+isScoreIncreased = false;
+Serial.print("Monster Position: ");
+Serial.println(monsterPosition);
+Serial.print("player: ");
+Serial.println(playerPosition);
+
+ int i = 1;
+ 
+ if(playerPosition == monsterPosition || playerPosition == monsterPosition+1 || playerPosition == monsterPosition+2)
   {
-    if (isScoreIncreased == 0)
+    if (isScoreIncreased == false)
     {
-      score ++;
-      isScoreIncreased = 1;
-      
+     
+       Serial.print("-------------------------Score:  ");
+      Serial.println(score);
+      isScoreIncreased = true;
+      score2++;
     }
-  }*/
+  }
 
     while (i < 9)
     { 
-      
-       /* if(ledMatrix[line - i][playerPosition] == true) // e impuscat
+      /*
+        if(ledMatrix[line - i][playerPosition] == true) // e impuscat
         {
           ledMatrix[line][playerPosition] = false;
           ledMatrix[line - i][playerPosition] = false;
@@ -225,7 +234,7 @@ void fire(int line, int &playerPosition)
           {
           score = score + 1;
           Serial.println(score);
-          isScoreIncreased =1;}
+          isScoreIncreased = 1;}
           
           //delay(10);
           
@@ -234,23 +243,25 @@ void fire(int line, int &playerPosition)
         ledMatrix[line-i][playerPosition] = true;
 
         if (i > 1)
+        {
              ledMatrix[line - i + 1][playerPosition] = false;
+        }
+            
         i++;
         pushMatrix();    
     }
     shot = true;
-
-
-    
-
 }
+
 
  void moveDot() 
  {
   int valX = analogRead(joyStickVRx);
 
-  if (valX > 600) {
-    if (moved == false) {
+  if (valX > 600)
+  {
+    if (moved == false)
+    {
       previsiousPosition = playerPosition;
       playerPosition++;
       moved = true;
@@ -303,8 +314,10 @@ void gameOver()
 
     lcd.clear();
     lcd.setCursor(0, 0); 
-//    lcd.print(score);
-  //  lcd.setCursor(0,1);
+    lcd.print("Score: ");
+    lcd.setCursor(7,0);
+    lcd.print(score);
+    lcd.setCursor(0,1);
     lcd.print("HIGHSCORE: ");
     delay(5000);
 
@@ -315,40 +328,33 @@ void gameOver()
     
     lcd.clear();
     lcd.setCursor(0,0);
-    lcd.print("PRESS ARROW UP");
+    lcd.print("DO YOU WANT");
     lcd.setCursor(1,1);
-    lcd.print("TO START AGAIN");   
+    lcd.print("TO START AGAIN?");   
 }
 
 void startGame()
 {
-  if(millis() - lastUpdate > 300)
+  if(millis() - lastUpdate > monsterSpeed)
   {
     lastUpdate = millis();
-    pushRandomMonster();  
-    
-  }   
-    moveDot();
-
- 
-  shot = digitalRead(SW_PIN);
-  isScoreIncreased = 0;
-  if(shot == false)
-  {
-   fire(7,playerPosition);
-   shot = true;
-   score++;
-   Serial.print("score: ");
-   Serial.println(score);
+    pushRandomMonster();    
+  } 
    
+  moveDot();
+
+  shot = digitalRead(SW_PIN);
+  if(shot == 0)
+  {
+   fire(LIMIT, playerPosition);
   } 
 }
-
 
 
 void setup() 
 {
   Serial.begin(9600);
+  randomSeed(analogRead(randomPin));
   pinMode(SW_PIN, INPUT);
   pinMode(V0_PIN, OUTPUT);
   
@@ -356,28 +362,27 @@ void setup()
   lc.setIntensity(0, 1); 
   lc.clearDisplay(0);
 
-  digitalWrite(SW_PIN, HIGH); 
-  analogWrite(V0_PIN, 90); 
-
-  lc.clearDisplay(0);
   lcd.begin(16,2);
   lcd.setCursor(1, 0); 
   lcd.print("PRESS ARROW UP");
   lcd.setCursor(4,1);
-  lcd.print("TO START");
-  
-  }
-  
+  lcd.print("TO START"); 
 
+  digitalWrite(SW_PIN, HIGH); 
+  analogWrite(V0_PIN, 90); 
+}
+  
   
 void loop() 
-{
-
-  
+{ 
+  //Serial.println((String)"score" + score);
+  monsterSpeed = 300;
   int  valY = analogRead(joyStickVRy);
 
    if(start == false)
     {
+      Serial.println("test start false");
+      //delay(1000);
       if(valY < 400)
       {
         start = true;
@@ -386,26 +391,37 @@ void loop()
       }
     }
 
-
-
   if (start == true) 
   {
      if (lifes >=  0)
-     { startGame();
+     { 
+      startGame();
       lcd.clear();
-      lcd.setCursor(0,0);
+      lcd.setCursor(0,1);
       if (lifes == 2)
-      lcd.print("You have 2 lifes");
+      lcd.print("2 lifes");
       if (lifes == 1)
-      { lcd.clear();
-      lcd.print("You have 1 life");
+      { 
+        lcd.setCursor(0,1);
+        lcd.print("1 life");
       }
+      if(lifes == 0)
+      {
+        lcd.setCursor(0,1);
+        lcd.print("0 lifes");
       }
+      lcd.setCursor(0, 0); 
+      lcd.print("Score: ");
+      lcd.setCursor(7,0);
+      lcd.print(score);
+     }
      else
      {
+      Serial.println("test start false2");
+      delay(1000);
        for (int i = 0; i < 8; i++)
-       for (int j = 0; j < 8; j++)
-        ledMatrix[i][j] = gameOverMatrix[i][j];
+         for (int j = 0; j < 8; j++)
+          ledMatrix[i][j] = gameOverMatrix[i][j];
        pushMatrix(); 
        gameOver();
      }
