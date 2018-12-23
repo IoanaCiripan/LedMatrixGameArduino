@@ -1,7 +1,8 @@
 #include "LedControl.h" 
 #include <LiquidCrystal.h>
+#include <EEPROM.h>
 
-#define SW_PIN  13     // digital pin connected to switch output
+#define SW_PIN  13      // digital pin connected to switch output
 #define joyStickVRx A0 // analog pin connected to X output
 #define joyStickVRy A1 // analog pin connected to Y output
 #define V0_PIN 9       // PWN 
@@ -10,25 +11,30 @@
 LiquidCrystal lcd(2, 3, 4, 5, 6, 7); // RS,E,D4,D5,D6,D7
 LedControl lc = LedControl(12, 11, 10, 1); // DIN, CLK, LOAD, No. DRIVER
 
-int LIMIT = 7;
-int lifes = 2;
-long score = 0;
-int score2 = 0;
-int randomPoint;
+const int LIMIT_LINE = 7;
+const int LIMIT_COLUMN = 7;
+const int MAX_LOST_PICES = 30;
+int counter;
+int lives = 2;
+int minMonsterSpeed = 400; // the minimum speed
+int maxMonsterSpeed = 150; // full speed
+int monsterSpeed = minMonsterSpeed; 
+int acceleration = 20;
 int monsterPosition;
-int monsterSpeed;
 int playerPosition = 3; 
-int previsiousPosition = playerPosition;
-int i = 1;
+int previousPosition = playerPosition;
 unsigned long int lastUpdate = 0;
-unsigned long int lastMove = 0;
 boolean moved = false;
 boolean monsterPushed = false;
 boolean shot = false;
-boolean start = false;
-boolean dead = false; // check if it is dead
-boolean firstTime = true;
+boolean start = false; 
+boolean isModified = 0;
 boolean isScoreIncreased = false;
+boolean isShoted = false;
+int lostPices = 0; // represents how many "pices" of monsters you have missed
+int score = 0;
+int score2 = 0;
+int highScore;
 
 
  bool ledMatrix[8][8] = 
@@ -64,252 +70,287 @@ boolean isScoreIncreased = false;
   {0, 0, 0, 1, 1, 0, 0, 0},
   {0, 0, 0, 1, 1, 0, 0, 0},
   {0, 0, 0, 1, 1, 0, 0, 0},
-  {0, 0, 0, 1, 1, 0, 0, 0}
+  {0, 0, 0, 0, 0, 0, 0, 0}
 };
 
 
-void pushMatrix() 
+void pushMatrix()
 {
-  for (int j = 0; j < 8; j++) {
-    for (int i = 0; i < 8; i++) {
-      lc.setLed(0, i, j, ledMatrix[i][j]);
+    for (int i = 0; i <= LIMIT_LINE; i++)
+    {
+        for (int j = 0; j <= LIMIT_COLUMN; j++)
+        {
+            lc.setLed(0, i, j, ledMatrix[i][j]);
+        }
     }
-  }
 }
 
 
-void clearMatrix() 
+void clearMatrix()
 {
-  for (int i = 0; i < 7; i++)
-    for (int j = 0; j < 8; j++)
-        ledMatrix[i][j] = 0;
+    for (int i = 0; i <= LIMIT_LINE; i++)
+    {
+        for (int j = 0; j <= LIMIT_COLUMN; j++)
+        {
+            ledMatrix[i][j] = 0;
+        }
+    }
 }
 
 
-void pushRandomMonster() 
+void pushRandomMonster()
 {
-  if (monsterPushed == false)
-  {
-    i = 1;
-    randomPoint = random(0, 6);
-    monsterPosition = randomPoint;
-    clearMatrix();
-    if (randomPoint == 0)
+   
+    if (monsterPushed == false)
     {
-      ledMatrix[0][0] = 1;
-      ledMatrix[0][1] = 1;
-      ledMatrix[0][2] = 1;
-      ledMatrix[0][3] = 0;
-      ledMatrix[0][4] = 0;
-      ledMatrix[0][5] = 0;
-      ledMatrix[0][6] = 0;
-      ledMatrix[0][7] = 0;
+        isModified = 0;
+        counter= 1;
+        monsterPosition = random(0, 6); // generates a random position for the next monster
+        clearMatrix();
+        
+        if (monsterPosition == 0)
+        {
+            ledMatrix[0][0] = 1;
+            ledMatrix[0][1] = 1;
+            ledMatrix[0][2] = 1;
+            ledMatrix[0][3] = 0;
+            ledMatrix[0][4] = 0;
+            ledMatrix[0][5] = 0;
+            ledMatrix[0][6] = 0;
+            ledMatrix[0][7] = 0;
+        }
+
+        if (monsterPosition == 1)
+        {
+            ledMatrix[0][0] = 0;
+            ledMatrix[0][1] = 1;
+            ledMatrix[0][2] = 1;
+            ledMatrix[0][3] = 1;
+            ledMatrix[0][4] = 0;
+            ledMatrix[0][5] = 0;
+            ledMatrix[0][6] = 0;
+            ledMatrix[0][7] = 0;
+        }
+
+        if (monsterPosition == 2)
+        {
+            ledMatrix[0][0] = 0;
+            ledMatrix[0][1] = 0;
+            ledMatrix[0][2] = 1;
+            ledMatrix[0][3] = 1;
+            ledMatrix[0][4] = 1;
+            ledMatrix[0][5] = 0;
+            ledMatrix[0][6] = 0;
+            ledMatrix[0][7] = 0;
+        }
+
+        if (monsterPosition == 3)
+        {
+            ledMatrix[0][0] = 0;
+            ledMatrix[0][1] = 0;
+            ledMatrix[0][2] = 0;
+            ledMatrix[0][3] = 1;
+            ledMatrix[0][4] = 1;
+            ledMatrix[0][5] = 1;
+            ledMatrix[0][6] = 0;
+            ledMatrix[0][7] = 0;
+        }
+
+        if (monsterPosition == 4)
+        {
+            ledMatrix[0][0] = 0;
+            ledMatrix[0][1] = 0;
+            ledMatrix[0][2] = 0;
+            ledMatrix[0][3] = 0;
+            ledMatrix[0][4] = 1;
+            ledMatrix[0][5] = 1;
+            ledMatrix[0][6] = 1;
+            ledMatrix[0][7] = 0;
+        }
+
+        if (monsterPosition == 5)
+        {
+            ledMatrix[0][0] = 0;
+            ledMatrix[0][1] = 0;
+            ledMatrix[0][2] = 0;
+            ledMatrix[0][3] = 0;
+            ledMatrix[0][4] = 0;
+            ledMatrix[0][5] = 1;
+            ledMatrix[0][6] = 1;
+            ledMatrix[0][7] = 1;
+        }
+
+        monsterPushed = true;
     }
 
-    if (randomPoint == 1)
+    pushMatrix();
+
+    for (int j = 0;j <= LIMIT_COLUMN; j++) // shift the monster next line
     {
-      ledMatrix[0][0] = 0;
-      ledMatrix[0][1] = 1;
-      ledMatrix[0][2] = 1;
-      ledMatrix[0][3] = 1;
-      ledMatrix[0][4] = 0;
-      ledMatrix[0][5] = 0;
-      ledMatrix[0][6] = 0;
-      ledMatrix[0][7] = 0;
+        ledMatrix[counter][j] = ledMatrix[counter - 1][j];
+        ledMatrix[counter - 1][j] = 0;
     }
 
-    if (randomPoint == 2)
+    counter++;
+
+    if (counter > LIMIT_LINE)
     {
-      ledMatrix[0][0] = 0;
-      ledMatrix[0][1] = 0;
-      ledMatrix[0][2] = 1;
-      ledMatrix[0][3] = 1;
-      ledMatrix[0][4] = 1;
-      ledMatrix[0][5] = 0;
-      ledMatrix[0][6] = 0;
-      ledMatrix[0][7] = 0;
+        monsterPushed = false;
+    }
+    
+    for (int j = 0;j <= LIMIT_COLUMN; j++)
+    {
+        if (j != playerPosition)
+        {
+            if (ledMatrix[LIMIT_LINE][j] == true) // if a pice of a monster touch the limit line, it is lost
+            {
+                lostPices++;
+                if (lostPices >= MAX_LOST_PICES)  // if the maximum number of lost pices is exceeded you are dead
+                {
+                    lives = -1;
+                }
+            }
+
+            ledMatrix[LIMIT_LINE][j] = false;
+        }
     }
 
-    if (randomPoint == 3)
-    {
-      ledMatrix[0][0] = 0;
-      ledMatrix[0][1] = 0;
-      ledMatrix[0][2] = 0;
-      ledMatrix[0][3] = 1;
-      ledMatrix[0][4] = 1;
-      ledMatrix[0][5] = 1;
-      ledMatrix[0][6] = 0;
-      ledMatrix[0][7] = 0;
-    }
-
-    if (randomPoint == 4)
-    {
-      ledMatrix[0][0] = 0;
-      ledMatrix[0][1] = 0;
-      ledMatrix[0][2] = 0;
-      ledMatrix[0][3] = 0;
-      ledMatrix[0][4] = 1;
-      ledMatrix[0][5] = 1;
-      ledMatrix[0][6] = 1;
-      ledMatrix[0][7] = 0;
-    }
-
-    if (randomPoint == 5)
-    {
-      ledMatrix[0][0] = 0;
-      ledMatrix[0][1] = 0;
-      ledMatrix[0][2] = 0;
-      ledMatrix[0][3] = 0;
-      ledMatrix[0][4] = 0;
-      ledMatrix[0][5] = 1;
-      ledMatrix[0][6] = 1;
-      ledMatrix[0][7] = 1;
-    }
-
-    monsterPushed = true;
-  }
-  
-  pushMatrix();
-  
-  int j;
-  for (j = 0; j < 8; j++) // shift the monster
-  {
-    ledMatrix[i][j] = ledMatrix[i - 1][j];
-    ledMatrix[i - 1][j] = 0;
-  }
-  
-  i++;
-  
-  if (i > 8)
-  {
-    monsterPushed = false;
-  }
-
-  pushMatrix();
+    pushMatrix();
 
 }
 
 
-void setDot(int &playerPosition)
+void setDot(int &playerPosition) // sets the dot in the matrix 8 x 8 range
 {
-  if (playerPosition > 7)
-    playerPosition = 7;
+  if (playerPosition > LIMIT_COLUMN)
+  {
+    playerPosition = LIMIT_COLUMN;
+  }
+  
   if (playerPosition < 0)
+  {
     playerPosition = 0;
+  }
+  
 }
+
 
 
 void fire(int line, int playerPosition)
 {
-isScoreIncreased = false;
-Serial.print("Monster Position: ");
-Serial.println(monsterPosition);
-Serial.print("player: ");
-Serial.println(playerPosition);
+    isShoted = false;
+    isScoreIncreased = false;
+    int i = 1;
 
- int i = 1;
- 
- if(playerPosition == monsterPosition || playerPosition == monsterPosition+1 || playerPosition == monsterPosition+2)
-  {
-    if (isScoreIncreased == false)
+    for (i = 0; i < LIMIT_LINE - 1; i++)
     {
-     
-       Serial.print("-------------------------Score:  ");
-      Serial.println(score);
-      isScoreIncreased = true;
-      score2++;
-    }
-  }
-
-    while (i < 9)
-    { 
-      /*
-        if(ledMatrix[line - i][playerPosition] == true) // e impuscat
+        if (ledMatrix[i][playerPosition] == 1)
         {
-          ledMatrix[line][playerPosition] = false;
-          ledMatrix[line - i][playerPosition] = false;
-          //Serial.print(ledMatrix[line][playerPosition]);
-         // isScoreIncreased = 1;
-          if (isScoreIncreased == 0)
-          {
-          score = score + 1;
-          Serial.println(score);
-          isScoreIncreased = 1;}
-          
-          //delay(10);
-          
-          break;
-        } */
+            isShoted = true;
+            break;
+        }
+    }
+    
+    if (isScoreIncreased == false && isShoted == true)
+    {
+        isScoreIncreased = true;
+        score++;
+        score2++;
+        if(score2 == 10)
+        {
+            monsterSpeed -= acceleration;
+            score2 = 0;
+            
+            if (monsterSpeed < maxMonsterSpeed) // the speed of the monster can not exceed the maxMonsterSpeed
+            {
+                monsterSpeed = maxMonsterSpeed;
+            }
+        }
+
+        if (score > highScore)
+        {
+            highScore = score;
+            EEPROM.write(0, score); // write the score in EEPROM if it is bigger than the highscore
+        }
+    }
+
+    i = 1;
+    while (i < 9)
+    {
         ledMatrix[line-i][playerPosition] = true;
 
         if (i > 1)
         {
-             ledMatrix[line - i + 1][playerPosition] = false;
+            ledMatrix[line - i + 1][playerPosition] = false;
         }
-            
+
         i++;
-        pushMatrix();    
+        pushMatrix();
     }
     shot = true;
 }
 
 
- void moveDot() 
- {
-  int valX = analogRead(joyStickVRx);
+void moveDot()
+{
+    int valX = analogRead(joyStickVRx);
 
-  if (valX > 600)
-  {
-    if (moved == false)
+    if (valX > 600)
     {
-      previsiousPosition = playerPosition;
-      playerPosition++;
-      moved = true;
+        if (moved == false)
+        {
+            previousPosition = playerPosition;
+            playerPosition++;
+            moved = true;
+        }
     }
-  }
-  else
-  {
-    if (valX < 400)
+
+    else
     {
-      if (moved == false)
-      {
-        previsiousPosition = playerPosition;
-        playerPosition--;
-        moved = true;
-      }
-    } 
-    else moved = false;
-  }
+        if (valX < 400)
+        {
+            if (moved == false)
+            {
+                previousPosition = playerPosition;
+                playerPosition--;
+                moved = true;
+            }
+        }
+        else
+            moved = false;
+    }
 
-  setDot(playerPosition);
+    setDot(playerPosition);
 
-  if (previsiousPosition != playerPosition)
-    ledMatrix[7][previsiousPosition] = false;
+    if (previousPosition != playerPosition)
+        ledMatrix[LIMIT_LINE][previousPosition] = false;
 
-  ledMatrix[7][playerPosition] = true;
+    ledMatrix[LIMIT_LINE][playerPosition] = true;
 
-  pushMatrix();
-  
- if (ledMatrix[6][playerPosition] == 1) 
-  {
-    if (lifes >= 0)
-     { 
-      lifes = lifes - 1;
-      delay(1000);
-     }    
-  }
-   
-  else
-  {
-    dead = false;
-    start = true;
-  }
+    pushMatrix();
+
+    if (ledMatrix[LIMIT_LINE - 1][playerPosition] == 1) // check if the monster hits me
+    {
+        if (lives >= 0)
+        {
+            if (isModified == 0)
+            {
+                lives = lives - 1;
+                isModified = 1;
+            }
+        }
+    }
+
+    else
+    {
+        start = true;
+    }
 
 }
 
+
 void gameOver()
 {
-    dead = true;
     start = false;
 
     lcd.clear();
@@ -319,11 +360,14 @@ void gameOver()
     lcd.print(score);
     lcd.setCursor(0,1);
     lcd.print("HIGHSCORE: ");
+    lcd.setCursor(12,1);
+    lcd.print(highScore);
     delay(5000);
 
-     for (int i = 0; i < 8; i++)
-      for (int j = 0; j < 8; j++)
+     for (int i = 0; i <= LIMIT_LINE; i++)
+      for (int j = 0; j <= LIMIT_COLUMN; j++)
         ledMatrix[i][j] = arrowUp[i][j];
+        
     pushMatrix();    
     
     lcd.clear();
@@ -335,19 +379,20 @@ void gameOver()
 
 void startGame()
 {
-  if(millis() - lastUpdate > monsterSpeed)
-  {
-    lastUpdate = millis();
-    pushRandomMonster();    
-  } 
-   
-  moveDot();
 
-  shot = digitalRead(SW_PIN);
-  if(shot == 0)
-  {
-   fire(LIMIT, playerPosition);
-  } 
+    if(millis() - lastUpdate > monsterSpeed)
+    {
+        lastUpdate = millis();
+        pushRandomMonster();
+    }
+
+    moveDot();
+
+    shot = digitalRead(SW_PIN);
+    if(shot == 0)
+    {
+        fire(LIMIT_LINE, playerPosition);
+    }
 }
 
 
@@ -359,9 +404,15 @@ void setup()
   pinMode(V0_PIN, OUTPUT);
   
   lc.shutdown(0, false); 
-  lc.setIntensity(0, 1); 
+  lc.setIntensity(0, 0); 
   lc.clearDisplay(0);
 
+   for (int i = 0; i <= LIMIT_LINE; i++)
+      for (int j = 0; j <= LIMIT_COLUMN; j++)
+        ledMatrix[i][j] = arrowUp[i][j];
+        
+  pushMatrix();  
+    
   lcd.begin(16,2);
   lcd.setCursor(1, 0); 
   lcd.print("PRESS ARROW UP");
@@ -369,64 +420,69 @@ void setup()
   lcd.print("TO START"); 
 
   digitalWrite(SW_PIN, HIGH); 
-  analogWrite(V0_PIN, 90); 
+  analogWrite(V0_PIN, 90);
+  int val = 0;
+  highScore = EEPROM.read(0); 
 }
   
   
-void loop() 
-{ 
-  //Serial.println((String)"score" + score);
-  monsterSpeed = 300;
-  int  valY = analogRead(joyStickVRy);
+void loop()
+{
+    int  valY = analogRead(joyStickVRy);
 
-   if(start == false)
+    if(start == false)
     {
-      Serial.println("test start false");
-      //delay(1000);
-      if(valY < 400)
-      {
-        start = true;
-        lifes = 2;
-        score = 0;
-      }
+        if(valY < 400)
+        {
+            start = true;
+            lives = 2;
+            score = 0;
+            lostPices = 0;
+            monsterSpeed = minMonsterSpeed;
+        }
     }
 
-  if (start == true) 
-  {
-     if (lifes >=  0)
-     { 
-      startGame();
-      lcd.clear();
-      lcd.setCursor(0,1);
-      if (lifes == 2)
-      lcd.print("2 lifes");
-      if (lifes == 1)
-      { 
-        lcd.setCursor(0,1);
-        lcd.print("1 life");
-      }
-      if(lifes == 0)
-      {
-        lcd.setCursor(0,1);
-        lcd.print("0 lifes");
-      }
-      lcd.setCursor(0, 0); 
-      lcd.print("Score: ");
-      lcd.setCursor(7,0);
-      lcd.print(score);
-     }
-     else
-     {
-      Serial.println("test start false2");
-      delay(1000);
-       for (int i = 0; i < 8; i++)
-         for (int j = 0; j < 8; j++)
-          ledMatrix[i][j] = gameOverMatrix[i][j];
-       pushMatrix(); 
-       gameOver();
-     }
-  }
- 
- 
-  
+    if (start == true)
+    {
+        if (lives >=  0)
+        {
+            startGame();
+
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("Score: ");
+            lcd.setCursor(8,0);
+            lcd.print(score);
+            lcd.setCursor(0,1);
+            if (lives == 2)
+            {
+                lcd.setCursor(0,1);
+                lcd.print("2 lives");  
+            }
+            if (lives == 1)
+            {
+                lcd.setCursor(0,1);
+                lcd.print("1 life");
+            }
+            if(lives == 0)
+            {
+                lcd.setCursor(0,1);
+                lcd.print("0 lives");
+            }
+            
+            lcd.setCursor(10,1);
+            lcd.print(MAX_LOST_PICES - lostPices);
+
+        }
+        else
+        {
+            delay(1000);
+            for (int i = 0; i <= LIMIT_LINE; i++)
+                for (int j = 0; j <= LIMIT_COLUMN; j++)
+                    ledMatrix[i][j] = gameOverMatrix[i][j];
+                    
+            pushMatrix();
+            gameOver();
+        }
+    }
 }
