@@ -13,7 +13,7 @@ LedControl lc = LedControl(12, 11, 10, 1); // DIN, CLK, LOAD, No. DRIVER
 
 const int LIMIT_LINE = 7;
 const int LIMIT_COLUMN = 7;
-const int MAX_LOST_PICES = 30;
+const int MAX_LOST_PIECES = 30;
 int counter;
 int lives = 2;
 int minMonsterSpeed = 400; // the minimum speed
@@ -31,7 +31,7 @@ boolean start = false;
 boolean isModified = 0;
 boolean isScoreIncreased = false;
 boolean isShoted = false;
-int lostPices = 0; // represents how many "pices" of monsters you have missed
+int lostPieces = 0; // represents how many "pieces" of monsters you have missed
 int score = 0;
 int score2 = 0;
 int highScore;
@@ -204,8 +204,8 @@ void pushRandomMonster()
         {
             if (ledMatrix[LIMIT_LINE][j] == true) // if a pice of a monster touch the limit line, it is lost
             {
-                lostPices++;
-                if (lostPices >= MAX_LOST_PICES)  // if the maximum number of lost pices is exceeded you are dead
+                lostPieces++;
+                if (lostPieces >= MAX_LOST_PIECES)  // if the maximum number of lost pieces is exceeded you are dead
                 {
                     lives = -1;
                 }
@@ -437,7 +437,7 @@ void loop()
             start = true;
             lives = 2;
             score = 0;
-            lostPices = 0;
+            lostPieces = 0;
             monsterSpeed = minMonsterSpeed;
         }
     }
@@ -471,7 +471,7 @@ void loop()
             }
             
             lcd.setCursor(10,1);
-            lcd.print(MAX_LOST_PICES - lostPices);
+            lcd.print(MAX_LOST_PIECES - lostPieces);
 
         }
         else
