@@ -14,6 +14,7 @@
  - Wires
 
 #Gameplay
+
 The game scope is to hit as much monsters as you can.
 You can move on the X axis and shot the monsters with the joystick.
 The more points you get, the faster is falling the monster (at each 10 points, the speed increase with 20 miliseconds).
